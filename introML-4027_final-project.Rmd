@@ -73,37 +73,6 @@ validation <- data[-training_indx,]
 
 ## Variable Importance & Selection
 
-### Principal Components Analysis
-
-Because the outcome is non-numeric, we want to just explore the feature/predictor/variable space, so let's leave out column 20 (the outcome, ```Label```).  
-Generate the principal components, and then keep the subset of components which explain at least 90% of the variance in the data.  
-
-```{r}
-pr.out = prcomp(training[,-20], scale=FALSE)
-
-pr.var = pr.out$sdev^2    # Calculate variance of each component
-pve = pr.var/sum(pr.var)  # Calculate percent variance explained of each component
-pve
-
-cumsum(pve)
-```
-
-The first 7 principal components explain 90% of the variance in the data.  (The cumulative sum of the percent of variance explained crosses the 90% threshold with 7 principal components, explaining 93.939% of the variance in the data).   
-
-#### Yeah, okay, but the physicists might want to know which raw variables are influencing this the most. 
-
-Each principal component is a linear combination of each of the predictors. 
-
-We can look at the ```$rotation``` (loadings) vector to find the eigenvalues for each variable as it relates to the component. 
-
-Here's the first principal component. 
-
-```{r}
-eigenlist = sort(abs(pr.out$rotation[,1]), decreasing = TRUE)
-print(eigenlist)
-cumsum(eigenlist)
-```
-
 ### Random Forest
 
 ```{r}
