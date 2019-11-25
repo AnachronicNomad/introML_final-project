@@ -1,0 +1,132 @@
+---
+title: "introML-4027_final-project"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(ggplot2)
+require(lattice)
+require(e1071)
+require(caret)
+
+library(randomForest)
+library(Rborist)
+set.seed(31415)
+```
+
+# Final Project
+
+## Research Goal/Question
+
+When two proton beams align, collisions of these protons produce elementary sub-atomic particles. 
+
+In addition to several other events, a Higgs Boson may be produced (a disturbance in the Higgs Field, related to the determination of mass of particles).  Moreover, in very special cases, the Higgs Boson may decay and produce a pair of another class of elementary sub-atomic particles, a pair of tau ($\tau$) leptons.  
+
+The data below was simulated by the ATLAS experiment at CERN.  The primary goal of this project is to investigate using two methods, Principal Components Analysis and Random Decision Forest; for selecting which primitive or derived values are important for determining if the observed products of a collision contain evidence of decay of the Higgs Boson into a $\tau$-lepton pair (_signal_) or if the detected products were of another variety (_background_). 
+
+## Data
+
+### Read Data
+
+```{r}
+#raw_data = read.csv2("./atlas-higgs-challenge-2014-v2.csv", sep=",", header=TRUE)
+raw_data = read.csv2("./training.csv", sep=",", header=TRUE)
+```
+
+### Build Data Set, Training/Test Split
+
+```{r}
+data = data.frame("DER_mass_transverse_met_lep" = as.numeric(raw_data$DER_mass_transverse_met_lep),
+                  "DER_mass_vis" = as.numeric(raw_data$DER_mass_vis),
+                  "DER_pt_h" = as.numeric(raw_data$DER_pt_h),
+                  "DER_deltar_tau_lap" = as.numeric(raw_data$DER_deltar_tau_lep),
+                  "DER_pt_tot" = as.numeric(raw_data$DER_pt_tot),
+                  "DER_sum_pt" = as.numeric(raw_data$DER_sum_pt),
+                  "DER_pt_ratio_lep_tau" = as.numeric(raw_data$DER_pt_ratio_lep_tau),
+                  "DER_met_phi_centrality" = as.numeric(raw_data$DER_met_phi_centrality),
+                  "PRI_tau_pt" = as.numeric(raw_data$PRI_tau_pt),
+                  "PRI_tau_eta" = as.numeric(raw_data$PRI_tau_eta),
+                  "PRI_tau_phi" = as.numeric(raw_data$PRI_tau_phi),
+                  "PRI_lep_pt" = as.numeric(raw_data$PRI_lep_pt),
+                  "PRI_lep_eta" = as.numeric(raw_data$PRI_lep_eta),
+                  "PRI_lep_phi" = as.numeric(raw_data$PRI_lep_phi),
+                  "PRI_met" = as.numeric(raw_data$PRI_met),
+                  "PRI_met_phi" = as.numeric(raw_data$PRI_met_phi),
+                  "PRI_met_sumet" = as.numeric(raw_data$PRI_met_sumet),
+                  "PRI_jet_num" = as.numeric(raw_data$PRI_jet_num),
+                  "PRI_jet_all_pt" = as.numeric(raw_data$PRI_jet_all_pt),
+                  "Label" = as.factor(raw_data$Label)
+)
+
+# Hold out 30% from training sample, build the training subset
+num_val <- floor(nrow(data) * 0.3)  # Number held out for validation subset
+num_train <- nrow(data) - num_val
+training_indx <- sample(nrow(data), 
+                        num_train, 
+                        replace=F)
+
+training <- data[training_indx,]
+validation <- data[-training_indx,]
+```
+
+## Variable Importance & Selection
+
+### Principal Components Analysis
+
+Because the outcome is non-numeric, we want to just explore the feature/predictor/variable space, so let's leave out column 20 (the outcome, ```Label```).  
+Generate the principal components, and then keep the subset of components which explain at least 90% of the variance in the data.  
+
+```{r}
+pr.out = prcomp(training[,-20], scale=FALSE)
+
+pr.var = pr.out$sdev^2    # Calculate variance of each component
+pve = pr.var/sum(pr.var)  # Calculate percent variance explained of each component
+pve
+
+cumsum(pve)
+```
+
+The first 7 principal components explain 90% of the variance in the data.  (The cumulative sum of the percent of variance explained crosses the 90% threshold with 7 principal components, explaining 93.939% of the variance in the data).   
+
+#### Yeah, okay, but the physicists might want to know which raw variables are influencing this the most. 
+
+Each principal component is a linear combination of each of the predictors. 
+
+We can look at the ```$rotation``` (loadings) vector to find the eigenvalues for each variable as it relates to the component. 
+
+Here's the first principal component. 
+
+```{r}
+eigenlist = sort(abs(pr.out$rotation[,1]), decreasing = TRUE)
+print(eigenlist)
+cumsum(eigenlist)
+```
+
+### Random Forest
+
+```{r}
+set.seed(31415)
+
+rf.Data = randomForest(formula = Label~.,
+                       data=training,
+                       #mtry=sqrt(length(colnames(data))), ## By default for classification, this will be sqrt(ncol(data)), the square root of the num. predictors 
+                       ntree=200,                          ## This is at 200 instead of the standard 500, bc I was out of memory
+                       importance=TRUE)
+```
+
+
+
+
+
+
+
+
+
+
+<br>
+
+<br>
+
+<br>
