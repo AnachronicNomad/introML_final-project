@@ -71,7 +71,7 @@ training <- data[training_indx,]
 validation <- data[-training_indx,]
 ```
 
-## Variable Importance & Selection
+## Random Forest
 
 ### Random Forest
 
