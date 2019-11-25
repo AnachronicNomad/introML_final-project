@@ -73,7 +73,7 @@ validation <- data[-training_indx,]
 
 ## Random Forest
 
-### Random Forest
+### Train The Model
 
 ```{r}
 set.seed(31415)
