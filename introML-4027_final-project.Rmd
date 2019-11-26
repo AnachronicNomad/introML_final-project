@@ -11,6 +11,7 @@ require(lattice)
 require(e1071)
 require(caret)
 
+library(dplyr)
 library(ranger)
 set.seed(31415)
 ```
@@ -32,7 +33,7 @@ I will evaluate the usage of Random Decision Forests for variable selection and 
 
 70 percent of a 250k observation sample of the original data set will be used for training, and evaluated using the remaining 30 percent as a test subset.
 
-A Random Decision Forest will be generated, using 10-fold Cross Validation and the “Out-Of-Bag” prediction accuracy for the “used variables” referenced in the next section. 
+A Random Decision Forest will be generated, using 5-fold Cross Validation and the “Out-Of-Bag” prediction accuracy for the “used variables” referenced in the next section. 
 
 Then, the important variables will be identified according to their mean decrease of Gini index (a measure of loss of prediction accuracy when the variable is not present in the tree), computed as an average across cross-validated trees.
 
@@ -47,25 +48,15 @@ Sources of error (identified by the rate of false positives and negatives) will 
 ### Read Data
 
 ```{r}
-temp_data = read.csv2("./atlas-higgs-challenge-2014-v2.csv", sep=",", header=TRUE)
-#temp_data = read.csv2("./training.csv", sep=",", header=TRUE)
-
-set.seed(31415)
-
-# Only use 250k of the observations to train and validate
-sample_indx = sample(nrow(temp_data), 
-                     250000,
-                     replace=F)
-raw_data = temp_data[sample_indx,]
-
-rm(temp_data)   # Clear no longer needed reference for memory savings
+raw_data = read.csv2("./atlas-higgs-challenge-2014-v2.csv", sep=",", header=TRUE)
 ```
 
-### Build Data Set, Training/Test Split
+### Build and Filter Working Data
 
 ```{r}
-# Build data frame of chosen predictors
+# Build data frame of chosen predictors, all as numeric
 data = data.frame("DER_mass_transverse_met_lep" = as.numeric(raw_data$DER_mass_transverse_met_lep),
+                  "DER_mass_MMC" = as.numeric(raw_data$DER_mass_MMC), 
                   "DER_mass_vis" = as.numeric(raw_data$DER_mass_vis),
                   "DER_pt_h" = as.numeric(raw_data$DER_pt_h),
                   "DER_deltar_tau_lap" = as.numeric(raw_data$DER_deltar_tau_lep),
@@ -86,18 +77,34 @@ data = data.frame("DER_mass_transverse_met_lep" = as.numeric(raw_data$DER_mass_t
                   "PRI_jet_all_pt" = as.numeric(raw_data$PRI_jet_all_pt),
                   "Label" = as.factor(raw_data$Label)
 )
+```
 
-rm(raw_data)    # clear no longer needed reference for memory saving
+#### Filter out observations which had null values
 
+```{r}
+# filter out observations which have No Value for the Higgs candidate mass
+filtered = dplyr::filter(data, DER_mass_MMC > -999.0)
+
+set.seed(31415)
+# Use 300k of the observations to train and validate
+sample_indx = sample(nrow(filtered), 
+                     300000,
+                     replace=F)
+project_data = filtered[sample_indx,]
+```
+
+#### Training/Test Split
+
+```{r}
 # Hold out 30% from training sample, build the training subset
-num_val <- floor(nrow(data) * 0.3)  # Number held out for validation subset
-num_train <- nrow(data) - num_val
-training_indx <- sample(nrow(data), 
+num_val <- floor(nrow(project_data) * 0.3)  # Number held out for validation subset
+num_train <- nrow(project_data) - num_val
+training_indx <- sample(nrow(project_data), 
                         num_train, 
                         replace=F)
 
-training <- data[training_indx,]
-validation <- data[-training_indx,]
+training <- project_data[training_indx,]
+validation <- project_data[-training_indx,]
 ```
 
 ## Random Forest
@@ -115,7 +122,7 @@ ctrl <- trainControl("repeatedcv",              # Do k-Folds CV to estimate erro
 
 # Model Tuning Parameters
 tgrid <- expand.grid(
-  mtry = c(4, sqrt(ncol(data)), 5, 6),      # Only choose 4,5,6 and sqrt(# predictors) for random subset of vars
+  mtry = c(4, sqrt(ncol(project_data)), 5, 6),      # Only choose 4,5,6 and sqrt(# predictors) for random subset of vars
   splitrule = "gini",                       # Make sure to split trees according to node impurity
   min.node.size = c(2)                      # Ensure each decision tree splits twice, and compare the two
 )
@@ -144,9 +151,16 @@ plot(rf_model)
 print(rf_model$bestTune$mtry)
 ```
 
-Looks like we should be using 6 
+Looks like we should be using at least 6 randomly selected variables for each predictor.
 
+### Test the model on the validation subset
 
+```{r}
+pred = predict(rf_model, newdata = validation)
+
+```
+
+### AUC-ROC Curves
 
 <br>
 
