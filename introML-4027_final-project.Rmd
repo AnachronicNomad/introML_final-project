@@ -11,8 +11,7 @@ require(lattice)
 require(e1071)
 require(caret)
 
-library(randomForest)
-library(Rborist)
+library(ranger)
 set.seed(31415)
 ```
 
@@ -20,24 +19,52 @@ set.seed(31415)
 
 ## Research Goal/Question
 
-When two proton beams align, collisions of these protons produce elementary sub-atomic particles. 
+When two proton beams align, collisions of these protons produce elementary (subatomic) particles.
 
-In addition to several other events, a Higgs Boson may be produced (a disturbance in the Higgs Field, related to the determination of mass of particles).  Moreover, in very special cases, the Higgs Boson may decay and produce a pair of another class of elementary sub-atomic particles, a pair of tau ($\tau$) leptons.  
+In addition to several other events, a Higgs Boson may be produced (a disturbance in the Higgs Field, related to the mass of particles). 
+Moreover, in very special cases, the Higgs Boson may decay and produce a pair of another class of elementary subatomic particles, a pair of tau ($\tau$) leptons.  
 
-The data below was simulated by the ATLAS experiment at CERN.  The primary goal of this project is to investigate using two methods, Principal Components Analysis and Random Decision Forest; for selecting which primitive or derived values are important for determining if the observed products of a collision contain evidence of decay of the Higgs Boson into a $\tau$-lepton pair (_signal_) or if the detected products were of another variety (_background_). 
+The data below was simulated by the ATLAS experiment at CERN.  The primary goal of this project is to evaluate the usage of Random Decision Forests for selecting which primitive or derived values are important for determining if the observed products of a collision contain evidence of decay of the Higgs Boson into a tau-lepton pair (_signal_) or if the detected products were of another variety (_background_).
+
+## Methodology
+
+I will evaluate the usage of Random Decision Forests for variable selection and prediction. 
+
+70 percent of a 250k observation sample of the original data set will be used for training, and evaluated using the remaining 30 percent as a test subset.
+
+A Random Decision Forest will be generated, using 10-fold Cross Validation and the “Out-Of-Bag” prediction accuracy for the “used variables” referenced in the next section. 
+
+Then, the important variables will be identified according to their mean decrease of Gini index (a measure of loss of prediction accuracy when the variable is not present in the tree), computed as an average across cross-validated trees.
+
+Finally, the effectiveness of classification using the Random Forest as a model will be evaluated with the rate of true positive and negative classifications on the test subset.  
+Sources of error (identified by the rate of false positives and negatives) will be examined. 
+
 
 ## Data
+
+### Rationale
 
 ### Read Data
 
 ```{r}
-#raw_data = read.csv2("./atlas-higgs-challenge-2014-v2.csv", sep=",", header=TRUE)
-raw_data = read.csv2("./training.csv", sep=",", header=TRUE)
+temp_data = read.csv2("./atlas-higgs-challenge-2014-v2.csv", sep=",", header=TRUE)
+#temp_data = read.csv2("./training.csv", sep=",", header=TRUE)
+
+set.seed(31415)
+
+# Only use 250k of the observations to train and validate
+sample_indx = sample(nrow(temp_data), 
+                     250000,
+                     replace=F)
+raw_data = temp_data[sample_indx,]
+
+rm(temp_data)   # Clear no longer needed reference for memory savings
 ```
 
 ### Build Data Set, Training/Test Split
 
 ```{r}
+# Build data frame of chosen predictors
 data = data.frame("DER_mass_transverse_met_lep" = as.numeric(raw_data$DER_mass_transverse_met_lep),
                   "DER_mass_vis" = as.numeric(raw_data$DER_mass_vis),
                   "DER_pt_h" = as.numeric(raw_data$DER_pt_h),
@@ -60,6 +87,8 @@ data = data.frame("DER_mass_transverse_met_lep" = as.numeric(raw_data$DER_mass_t
                   "Label" = as.factor(raw_data$Label)
 )
 
+rm(raw_data)    # clear no longer needed reference for memory saving
+
 # Hold out 30% from training sample, build the training subset
 num_val <- floor(nrow(data) * 0.3)  # Number held out for validation subset
 num_train <- nrow(data) - num_val
@@ -76,21 +105,46 @@ validation <- data[-training_indx,]
 ### Train The Model
 
 ```{r}
-set.seed(31415)
+# training control
+ctrl <- trainControl("repeatedcv",              # Do k-Folds CV to estimate error, tune parameters
+                     number = 5,                # Do 5-fold CV to avoid melting the memory in my laptop
+                     allowParallel = TRUE,      # If parallelized backend available, use it
+                     classProbs = TRUE,         # Save the probabilities of each class, averaged from trees
+                     verboseIter = TRUE) #,     # Produce verbose output when training
+                     #savePredictions = TRUE)
 
-rf.Data = randomForest(formula = Label~.,
-                       data=training,
-                       #mtry=sqrt(length(colnames(data))), ## By default for classification, this will be sqrt(ncol(data)), the square root of the num. predictors 
-                       ntree=200,                          ## This is at 200 instead of the standard 500, bc I was out of memory
-                       importance=TRUE)
+# Model Tuning Parameters
+tgrid <- expand.grid(
+  mtry = c(4, sqrt(ncol(data)), 5, 6),      # Only choose 4,5,6 and sqrt(# predictors) for random subset of vars
+  splitrule = "gini",                       # Make sure to split trees according to node impurity
+  min.node.size = c(2)                      # Ensure each decision tree splits twice, and compare the two
+)
+
+set.seed(31415)
+rf_model <- train(Label ~ .,                # Outcome: Label: {b,s}; as a response of all other predictors
+                  data = training,          # Use the pre-specified training subset
+                  method = "ranger",        # use `ranger' package implementation of Random Forest
+                  importance = "impurity",  # Measure Gini Index of Node Impurity
+                  num.trees = 250,          # Only grow 250 trees, save memory
+                  tuneGrid = tgrid,         # Use specified tuning parameters
+                  trControl = ctrl,         # Use training control specified earlier
+                  verbose=T)                # Enable Verbose output for timing
 ```
 
+### Which random subset of variables resulted in a higher accuracy rate?
 
+```{r}
+# Plot Accuracy vs the number of randomly selected predictors for each decision tree
+plot(rf_model)
+```
 
+```{r}
+# Print the best-accuracy number of randomly selected variables
+# for each decision tree.
+print(rf_model$bestTune$mtry)
+```
 
-
-
-
+Looks like we should be using 6 
 
 
 
