@@ -11,6 +11,7 @@ require(lattice)
 require(e1071)
 require(caret)
 
+library(pROC)
 library(dplyr)
 library(ranger)
 set.seed(31415)
@@ -141,7 +142,7 @@ rf_model <- train(Label ~ .,                # Outcome: Label: {b,s}; as a respon
                   verbose=T)                # Enable Verbose output for timing
 ```
 
-### Which random subset of variables resulted in a higher accuracy rate?
+### Which number of random subset of variables resulted in a higher accuracy rate?
 
 ```{r}
 # Plot Accuracy vs the number of randomly selected predictors for each decision tree
@@ -164,6 +165,22 @@ pred = predict(rf_model, newdata = validation)
 ```
 
 ### AUC-ROC Curves
+
+```{r}
+
+```
+
+### Confusion Matrix - True/False Positives on Validation Set
+
+```{r}
+confusionMatrix(pred, validation$Label)
+```
+
+### Variable Importance measures
+
+```{r}
+varImp(rf_model)
+```
 
 <br>
 
