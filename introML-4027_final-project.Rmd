@@ -122,9 +122,12 @@ ctrl <- trainControl("repeatedcv",              # Do k-Folds CV to estimate erro
 
 # Model Tuning Parameters
 tgrid <- expand.grid(
-  mtry = c(4, sqrt(ncol(project_data)), 5, 6),      # Only choose 4,5,6 and sqrt(# predictors) for random subset of vars
-  splitrule = "gini",                       # Make sure to split trees according to node impurity
-  min.node.size = c(2)                      # Ensure each decision tree splits twice, and compare the two
+  # Only choose 4,5,6 and sqrt(# predictors) for random subset of vars
+  mtry = c(4, sqrt(ncol(project_data)), 5, 6, 7, 8, 9, 10),
+  # Make sure to split trees according to node impurity
+  splitrule = "gini",
+  # Ensure each decision tree splits twice, and compare the two
+  min.node.size = c(2)
 )
 
 set.seed(31415)
@@ -151,7 +154,7 @@ plot(rf_model)
 print(rf_model$bestTune$mtry)
 ```
 
-Looks like we should be using at least 6 randomly selected variables for each predictor.
+Looks like we should be using 5 randomly selected variables for each predictor, as it maximizes the accuracy rate of prediction.
 
 ### Test the model on the validation subset
 
