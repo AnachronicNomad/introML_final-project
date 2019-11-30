@@ -1,6 +1,6 @@
 ---
 title: "introML-4027_final-project"
-#output: html_notebook
+output: html_notebook
 ---
 
 ```{r setup, include=FALSE}
@@ -52,7 +52,13 @@ The data set can be directly accessed at the following link http://opendata.cern
 
 The data was originally compiled for the Higgs Boson Machine Learning Challenge 2014 on Kaggle, and can be located at the following link https://www.kaggle.com/c/higgs-boson.
 
-In general, I have elected to try and reduce particle physics knowledge needed for evaluating the usage of Random Decision Forests as a model itself, as the physics is not the primary goal of this project.  However, the page for the data, as well as the associated documentation (all of which is in the reference section), was immensely useful in understanding what each variable truly meant, how the variables were related, and what collinear or confounding factors to watch out for. 
+In general, I have elected to try and reduce particle physics knowledge needed for evaluating the usage of Random Decision Forests as a model itself, as the physics is not the primary goal of this project.  However, the page for the data, as well as the associated documentation (all of which is in the reference section), was immensely useful in understanding what each variable truly meant, how the variables were related, and what collinear or confounding factors to watch out for.  It's also important to make this note, because I do not have any expertise in high energy particle physics, and just wanted to explore it through a high-level statistical method that I hadn't used before or understood well. 
+
+At this point, it's probably good to mention the disclaimer that comes along with every publication of data in the CERN Open Data Portal:
+
+> Disclaimer
+>
+>The open data are released under the [Creative Commons CC0 waiver](https://creativecommons.org/publicdomain/zero/1.0/). Neither ATLAS nor CERN endorse any works, scientific or otherwise, produced using these data. All releases will have a unique DOI that you are requested to cite in any applications or publications. 
 
 ### Rationale
 
@@ -62,7 +68,11 @@ Some of the variables are related to whether or not a 'jet' (or multiples thereo
 
 Next, a small number of the observations (approx 40k) are missing an estimated mass for the Higgs Boson candidate.  These observations have been filtered out -- if there was no Higgs Boson, how would it decay into a tautau pair?
 
+Finally, there's some non-obvious jargon to unravel, best explored through a graphic Fig 1. - Atlas Reference Frame, courtesy of the documentation (Adam-Bourdarios, Cowan, Germain, Guyon, Kégl, Rousseau, 2014, pp. 7).
 
+![A figure describing the inertial reference frame in the simulation, as used by the data.](atlas-detector-figure.png)
+
+All phi ($\phi$) coordinates are angles within the $x-y$ plane.  All transverse quantities are projected onto the $x-y$ plane, and tend to occur within the same.  The pseudorapidity $\eta$ (eta) is a coordinate which is related to the direction along the $z$-axis that a particle is traveling, and is computed using the angle $\theta$. 
 
 ### Read Data
 
@@ -112,7 +122,7 @@ sample_indx = sample(nrow(filtered),
 project_data = filtered[sample_indx,]
 ```
 
-#### Training/Test Split
+#### Training/Validation Split
 
 ```{r}
 # Hold out 30% from training sample, build the training subset
@@ -253,31 +263,29 @@ We need more in-depth information, so we need to look at the confusion matrix (o
 confusionMatrix(pred.1, validation$Label)
 ```
 
-Something important to note here is that the "positive" class is a background event.  
-If we're looking to determine how well the model is classifying signal events, we need to look at the "negative" class, for the above confusion matrix. 
+Something important to note here is that the "positive" class is a background event.  If we're looking to determine how well the model is classifying signal events, we need to look at the "negative" class, for the above confusion matrix.  
+
 Finally, the 95% CI doesn't make a lot of sense in this context.  We've only done 10-fold CV for each of the different number of selected subsets of predictors.  While Random Decision Forests internally do cross-validation in order to choose which decision tree to use, this is not the metric being provided. 
 
-The "No Information Rate", or, the accuracy of random guesses based on the distribution, is 0.6597.  
-In order to be better than random guessing, the different prediction accuracies must be greater than this value.  
-At first glance, this is definitely the case, the overall accuracy rate is 0.8295!  
+The "No Information Rate", or, the accuracy of random guesses based on the distribution, is 0.6597.  In order to be better than random guessing, the different prediction accuracies must be greater than this value.  At first glance, this is definitely the case, the overall accuracy rate is 0.8295!  
 The model is definitely classifying _something_ correctly!
 
 Turns out it's a good thing we dug into the confusion matrix, because our True Positve Rate (for background) and True Negative Rate (for signal), are very different for our validation set. 
 
-While our overall accuracy rate is 82.95%, our accuracy rate for the classification of signal events (Neg Pred Value, above) is 77.63%.  
-This is definitely higher than the no information rate of 0.6597.  However, it's rather low, only performing 11.66% better than the No Information Rate.  
+While our overall accuracy rate is 82.95%, our accuracy rate for the classification of signal events (Neg Pred Value, above) is 77.63%.  This is definitely higher than the no information rate of 0.6597.  However, it's rather low, only performing 11.66% better than the No Information Rate.  
 
-The accuracy rate for determining if something is a background event is 85.31%.  
-This is definitely high relative to the No Information Rate. 
+The accuracy rate for determining if something is a background event is 85.31%.  This is definitely high relative to the No Information Rate. 
 
 
 ### Interpreting Accuracy and ROC
 
-Overall, the model is discriminating well between the background and signal events.  The evidence for this was in the ROC curve, and the associated AUC metric.  
+Overall, the model is discriminating well between the background and signal events.  The evidence for this was in the ROC curve, and the associated AUC metric, which was pretty good at around 0.89.  
 
-However, the accuracy rate says that we are only predicting background events well, and we are not predicting signal events as well as the background events.  However, the accuracy rate of true identification for both is well above the No Information Rate.  
+However, the accuracy rate says that we are only predicting background events well, and we are not predicting signal events as well as the background events.  However, the accuracy rate of true identification for both is well above the No Information Rate, indicating that we have an okay classifier - maybe not the best, but gets the job done.  
 
-Overall, it appears the model does _okay_, it's not overwhelmingly good at prediction with a validation accuracy rate of 0.8295.  However, the metrics we have available to evaluate the model indicate that it performs relatively well enough for determining variable importance. 
+We should take a quick detour to note that a significant number of predictors related to jets produced by a collision were left out of the model - these variables capture additional information about where the energy and mass ended up after a collision, and their removal may be a source of error, since not all the energy, momentum, and mass is being accounted for by the model.  This may have been the reason why there is such a large discrepancy in the true identification rate for background and signal events - there's probably something special occurring when a jet is produced, and you may need a certain energy/momentum/mass threshold to be crossed in order for the decay of the Higgs into a tautau pair in question to occur.
+
+Overall, it appears the model does _okay_, it's not overwhelmingly good at prediction with a validation accuracy rate of 0.8295.  However, the metrics we have available to evaluate the model indicate that it performs relatively well enough for determining variable importance, and will be generalizeable to a much larger population. 
 
 
 ### Variable Importance measures
@@ -331,13 +339,17 @@ Finally, the combination of multiple collinear variables which capture some of t
 
 We found that Random Decision Forests did reasonably well at prediction.  The model as built on the training subset and validated on a held-out subset had an ROC curve and associated AUC metric that indicated the model would generalize well to a larger population.  However, the metrics for true identification of background or signal classification were not as promising.  When validated on a held-out subset, the model had a tendency to predict background events _okay_, and did worse at predicting signal events, performing just on this side of passably well.  Yet, the accuracy rate of the true classification of both signal and background events was high enough to move on to the next stage, identifying variable importance. 
 
+However, due to the nature of the method being used, predictors which may have been significant have been left out.  There was no good way to handle the undefined values resulting from whether or not a jet was present - there may have been import information for the signal present in these values, but they weren't present.  This may have resulted in a discrepancy in the identification rate for background and signal events.  
+
 ### Variable Importance
 
 The variable importance measures gained from Random Forest provided insight into the data, and matched information known from theoretical models.  The method correctly identified that variables related to mass, momentum, and energy levels were the most important in determining what products form from a hadronic collision, decayed or otherwise - mass, momentum and energy must be conserved in one way or another.  
 
 Moreover, the variable importance measures available with Random Decision Forests identified several key features and provided a hierarchy for understanding what was important or not - even when the features have non-linear relationships, or have direct collinearity between them (which would otherwise make it difficult to determine which predictor was "more important").  This is not directly possible with many of the methods we covered in class, and is a unique addition to "the toolbox" beyond best-subset selection or interpreting coefficients from the usual regression. 
 
-However, this usage of the model "puts the cart before the horse" in some ways - one of the key things which became evident from the variable importance scores were the "groupings" of variables in relation to the outcome.  Where Random Decision Forests end up giving somewhat related variables similar Gini index scores, it begins to make more sense to group features together into composite features, such as using Principal Components, which may result in a higher accuracy rate at the expense of interpreting variable importance.  It also would have been significantly faster to first explore the data using an unsupervised method, identify these issues and relative distance for each 
+However, this usage of the model "puts the cart before the horse" in some ways - one of the key things which became evident from the variable importance scores were the "groupings" of variables in relation to the outcome.  Where Random Decision Forests end up giving somewhat related variables similar Gini index scores, it begins to make more sense to group features together into composite features, such as using Principal Components, which may result in a higher accuracy rate at the expense of interpreting variable importance.  It also would have been significantly faster to first explore the data using an unsupervised method, identify these issues and relative distance for each predictor, then decide on whether to use Random Decision Forests. 
+
+Finally, as mentioned repeatedly, potentially important information had to be left out due to the nature of the method.  The inability of a supervised method like this to handle when a variable becomes undefined poses an issue for exploring large data sets - however, it's difficult to determine variable importance with an unsupervised method in the first place, so this limitation just needs to be noted when using Random Decision Forests.  
 
 ### Real-World Implementation/Usage
 
@@ -347,7 +359,7 @@ The runtime for the code as used above was in the ballpark of 2-5 hours on a con
 
 Where methods such as regression and other techniques are accomplishable with a real solid beer or two, Random Decision Forests ended up being much more intense - the author's suggestion is to acquire boxed wine, friends, and cheese and crackers of choice.  The author found most the best success with the leverage of toasted brie and goat cheese, with a multiple berry preserve or jam, applied to a Ritz cracker. 
 
-In general, this method is employable when there has already been significant non-trivial work done on verifying and cleaning the data prior to use.  Significant prior thought needs to be put into how the problem is being addressed and constructed prior to the application of Random Decision Forests - in short time spans, the user may not have reasonable ability to run the model more than once before moving on to interpreting the model output. 
+In general, this method is employable when there has already been significant non-trivial work done on verifying and cleaning the data prior to use.  Significant prior thought needs to be put into how the problem is being addressed and constructed prior to the application of Random Decision Forests - in short time spans, the user may not have reasonable ability to run the model more than once, due to the intensive computational expense, before moving on to interpreting the model output. 
 
 ## References
 
