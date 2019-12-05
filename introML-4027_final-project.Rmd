@@ -62,11 +62,13 @@ At this point, it's probably good to mention the disclaimer that comes along wit
 
 ### Rationale
 
-All of the variables in the data set are either "primitive" (```PRI_```, directly observed by a detector), or "derived" (```DRI_```) from those primitive values.  From a statistics perspective, we then know that many of these variables are either collinear, or have non-linear relationships between themselves and the outcome.  This was part of the impetus behind choosing to use Random Decision Forests in order to approach this data set and associated problem. 
+All of the variables in the data set are either "primitive" (```PRI_```, computed directly from observations by a detector), or "derived" (```DRI_```) from those primitive values.  From a statistics perspective, we then know that many of these variables are either collinear, or have non-linear relationships between themselves and the outcome.  This was part of the impetus behind choosing to use Random Decision Forests in order to approach this data set and associated problem. 
 
 Some of the variables are related to whether or not a 'jet' (or multiples thereof) were produced during the collision.  However, for a vast majority of the data set, no jets were detected, and as a result the values for the associated jets was undefined.  There is no good way to include undefined values with this classifier, and so these variables have been left out.  What _has_ been kept are the total sum of momentum observed for all detected jets (```PRI_jet_all_pt```) and the number of jets produced (```PRI_jet_num```).  This may give us an indication of which perspective is more important to take - whether jets have been produced, or, accounting for the conservation of momentum in the products of the collision. 
 
-Next, a small number of the observations (approx 40k) are missing an estimated mass for the Higgs Boson candidate.  These observations have been filtered out -- if there was no Higgs Boson, how would it decay into a tautau pair?
+> Show graph here of missing values. 
+
+Next, a small number of the observations (approx 40k) are missing an estimated mass for the Higgs Boson candidate.  These observations have been filtered out -- if there was no Higgs Boson, how would it decay into a tautau pair?  Either way, an undefined value is difficult to use with our mthods, and it is currently a best practice at my level of concept mastery to avoid using them. 
 
 Finally, there's some non-obvious jargon to unravel, best explored through a graphic Fig 1. - Atlas Reference Frame, courtesy of the documentation (Adam-Bourdarios, Cowan, Germain, Guyon, Kégl, Rousseau, 2014, pp. 7).
 
@@ -77,7 +79,7 @@ All phi ($\phi$) coordinates are angles within the $x-y$ plane.  All transverse 
 ### Read Data
 
 ```{r}
-raw_data = read.csv2("./atlas-higgs-challenge-2014-v2.csv", sep=",", header=TRUE)
+raw_data = read.csv("./atlas-higgs-challenge-2014-v2.csv", sep=",", header=TRUE)
 ```
 
 ### Build and Filter Working Data
@@ -150,9 +152,11 @@ Next, the ```ranger``` package was used for access to its multi-core parallel im
 
 2. Subset permutation of observations throughout the different trees, and measure the magnitude of effect of different predictors by observing where the permuted subset of observations "ends up" after being run through the ensemble of trees. 
 
-While subset permutation provides a solid probablistic argument for which features (variables) were important, and provides a stronger estimate of test error with the usage of the "Out-of-bag" error for the held out subset of the permuted observations for each tree, the Gini index was used instead for its consistentcy and wide usage in the literature.  Furthermore, for our application of Random Decision Forests, the Gini index is a stronger measurement of variable importance - we have multiple variables whose values are derived in relationship to each other, and we want to know which of the derived or primitive values are of more use. 
+While subset permutation provides a solid probablistic argument for which features (variables) were important, and provides a stronger estimate of test error with the usage of the "Out-of-bag" error for the held out subset of the permuted observations for each tree, the Gini index was used instead for its consistentcy and wide canonical usage in the literature.  Furthermore, for our application of Random Decision Forests, the Gini index is a stronger measurement of variable importance - we have multiple variables whose values are derived in relationship to each other, and we want to know which of the derived or primitive values are of more use. 
 
-Finally, the standard 10-fold CV was used for variable selection, and 500 trees were grown.  Cross-Validation is used internally to each tree for the method for measuring the error and when making decision splits, but I was unable to verify what type of cross validation - simply that cross validation is in fact used. 
+Next, the standard 10-fold CV was used for variable selection, and 500 trees were grown.  Cross-Validation is used internally to each tree for the method for measuring the error and when making decision splits, but I was unable to verify what type of cross validation - simply that cross validation is in fact used. 
+
+Finally, there is a non-standard usage for the size of the subset of predictors for each tree - one of which that is included is $\sqrt{p}$, where $p$ is the number of predictors being considered.  In many other implementations, such as ```randomForest```, this is the default size of the predictor subset which is used.  I'm unsure why, how, where or when this ends up being leveraged within the implementation - but the documentation for every package I have tried (```randomForest```, ```RBorist```, etc.) mentions this as the default for whenever a classification problem (as opposed to regression) is being implemented.  As a result, it has been included in order to maintain standardization and parity with the literature.
 
 ### Train The Model
 
@@ -164,7 +168,7 @@ In order to build this document, this has been left out, and only 4 to 6 selecte
 ```{r}
 # training control
 ctrl <- trainControl("repeatedcv",              # Do k-Folds CV to estimate error, tune parameters
-                     number = 10,                # Do 5-fold CV to avoid melting the memory in my laptop
+                     number = 10,               # Do 5-fold CV to avoid melting the memory in my laptop
                      allowParallel = TRUE,      # If parallelized backend available, use it
                      classProbs = TRUE,         # Save the probabilities of each class, averaged from trees
                      verboseIter = TRUE         # Produce verbose output when training
@@ -206,7 +210,7 @@ plot(rf_model)
 print(rf_model$bestTune$mtry)
 ```
 
-Looks like we should be using 4 randomly selected variables for each predictor, as it maximizes the accuracy rate of prediction.
+Looks like we should be using 6 randomly selected variables for each predictor, as it maximizes the accuracy rate of prediction.
 
 ### Test the model on the validation subset
 
@@ -220,7 +224,7 @@ pred.1 = predict(rf_model, newdata = validation)
 
 ### AUC-ROC Curves
 
-Below is an ROC Curve representing the accuracy of prediction for whether or not an event was a "signal" event.  The predicted possibilities of an event are used, which is why the curve appears continuous. 
+Below is an ROC Curve representing the accuracy of prediction for whether or not an event was a "signal" event.  The predicted possibilities of an event are used, which is why the curve appears so continuous and smooth. 
 
 ```{r}
 # Build the ROC curve, use signal events as the positive class. 
@@ -242,18 +246,21 @@ Below are some metrics regarding the "Area under the Curve" (AUC), accuracy of p
 print(auc(result.roc))
 ```
 
-Typically, random chance is represented by an AUC of 0.5.  We can see here that the AUC of predicting a signal event is roughly 0.89, so we're definitely picking up the signal.  However, this doesn't tell us exactly what the accuracy rate is, just that we're discriminating between background and signal events much better than random chance.  The following will address this. 
+Typically, random chance is represented by an AUC of 0.5.  We can see here that the AUC of predicting a signal event is roughly 0.8893 on the test subset, so we're definitely picking up the signal.  However, this doesn't tell us exactly what the accuracy rate is, just that we're discriminating between background and signal events much better than random chance.  The following will address this. 
 
 ```{r}
 result.coords = coords(result.roc, "best", best.method="closest.topleft", ret=c("threshold", "accuracy", "precision", "tpr", "tnr"), transpose=FALSE)
 print(result.coords)
 ```
 
-We observe that the optimum threshold to balance specificity and sensitivity is at coordinate 0.3665 on the curve, according to the ROC curve we generated.  
-The accuracy and precision at this optimum threshold is 0.814 and 0.69.  
-The true positive rate and true negative rate are roughly the same _at this optimum threshold_, approximately 0.819 and 0.812 respectively. 
+We observe that the optimum threshold to balance specificity and sensitivity is at coordinate 0.4005 on the curve, according to the ROC curve we generated.  This coordinate is the optimum threshold which balances the accuracy rate of classification for both background and signal events. 
 
-However, these are measures of being able to discriminate between a background event and a signal event.  This hasn't told us how well the model actually performed on the validation set, just that based on the validation set, it will probably generalize well to a larger population data set. 
+The accuracy and precision at this optimum threshold is 0.807 and 0.726.  
+The true positive (for this curve, _signal_ events) rate and true negative rate are roughly the same _at this optimum threshold_, approximately 0.811 and 0.812 respectively. 
+
+What could we do in order to affect this?  We care more about increasing our accuracy rate of signal prediction, and we only identified the optimum threshold which balanced the true positive rate and the true negative rate.  At this point, we should identify that sensitivity is related to our true identification rate (specific to this curve, and not the remainder of this report) for classification of signal events.  According to the results from the ROC graph, we could adjust the threshold which counts as a "majority vote" from the Random Decision Forest ensemble, lowering our specificity (ability to predict background events, implying a drop in accuracy rate), but increasing our sensitivity and dramatically improving our ability to pick out signal events, which is what we want.  However, actually achieving this was beyond the scope of the initial project. 
+
+To emphasize to move forward, these are measures of being able to discriminate between a background event and a signal event.  This hasn't told us how well the model actually performed on the validation set, just that based on the validation set, it will probably generalize well to a larger population data set. 
 
 We need more in-depth information, so we need to look at the confusion matrix (of classification on the validation set) to get a better dig into what's going on. 
 
