@@ -41,6 +41,9 @@ Then, the important variables will be identified according to their mean decreas
 
 Finally, the effectiveness of classification using the Random Forest as a model will be evaluated with the rate of true positive and negative classifications on the test subset.  
 
+The development log and original source, plus a copy of the data set as when it was used, is available on GitHub at 
+
+https://github.com/AnachronicNomad/introML_final-project
 
 ## Data
 
@@ -258,7 +261,7 @@ We observe that the optimum threshold to balance specificity and sensitivity is 
 The accuracy and precision at this optimum threshold is 0.807 and 0.726.  
 The true positive (for this curve, _signal_ events) rate and true negative rate are roughly the same _at this optimum threshold_, approximately 0.811 and 0.812 respectively. 
 
-What could we do in order to affect this?  We care more about increasing our accuracy rate of signal prediction, and we only identified the optimum threshold which balanced the true positive rate and the true negative rate.  At this point, we should identify that sensitivity is related to our true identification rate (specific to this curve, and not the remainder of this report) for classification of signal events.  According to the results from the ROC graph, we could adjust the threshold which counts as a "majority vote" from the Random Decision Forest ensemble, lowering our specificity (ability to predict background events, implying a drop in accuracy rate), but increasing our sensitivity and dramatically improving our ability to pick out signal events, which is what we want.  However, actually achieving this was beyond the scope of the initial project. 
+What could we do in order to affect this?  We care more about increasing our accuracy rate of signal prediction, and we only identified the optimum threshold which balanced the true positive rate and the true negative rate.  At this point, we should identify that sensitivity is related to our true identification rate (specific to this curve, and not the remainder of this report) for classification of signal events.  According to the results from the ROC graph, we could adjust the threshold which counts as a "majority vote" from the Random Decision Forest ensemble, lowering our specificity (ability to predict background events, implying a drop in accuracy rate), but increasing our sensitivity and dramatically improving our ability to pick out signal events, which is what we want.  However, actually achieving this was beyond the scope of the initial project.  
 
 To emphasize to move forward, these are measures of being able to discriminate between a background event and a signal event.  This hasn't told us how well the model actually performed on the validation set, just that based on the validation set, it will probably generalize well to a larger population data set. 
 
@@ -274,14 +277,14 @@ Something important to note here is that the "positive" class is a background ev
 
 Finally, the 95% CI doesn't make a lot of sense in this context.  We've only done 10-fold CV for each of the different number of selected subsets of predictors.  While Random Decision Forests internally do cross-validation in order to choose which decision tree to use, this is not the metric being provided. 
 
-The "No Information Rate", or, the accuracy of random guesses based on the distribution, is 0.6597.  In order to be better than random guessing, the different prediction accuracies must be greater than this value.  At first glance, this is definitely the case, the overall accuracy rate is 0.8295!  
+The "No Information Rate", or, the accuracy of random guesses based on the distribution, is 0.6103.  In order to be better than random guessing, the different prediction accuracies must be greater than this value.  At first glance, this is definitely the case, the overall accuracy rate is 0.815!  
 The model is definitely classifying _something_ correctly!
 
 Turns out it's a good thing we dug into the confusion matrix, because our True Positve Rate (for background) and True Negative Rate (for signal), are very different for our validation set. 
 
-While our overall accuracy rate is 82.95%, our accuracy rate for the classification of signal events (Neg Pred Value, above) is 77.63%.  This is definitely higher than the no information rate of 0.6597.  However, it's rather low, only performing 11.66% better than the No Information Rate.  
+While our overall accuracy rate is 0.815, our accuracy rate for the classification of signal events (Neg Pred Value, above) is 0.7837.  This is definitely higher than the no information rate of 0.6103.  However, it's rather low for the ideal for a real world application - performing 0.1734 better than the No Information Rate certainly, but the rate indicates at least 1 out of every 5 signal events will be lost.  
 
-The accuracy rate for determining if something is a background event is 85.31%.  This is definitely high relative to the No Information Rate. 
+The accuracy rate for determining if something is a background event is 0.8327.  This is definitely high relative to the No Information Rate, and indicates we are identifying background events extremely well - the model has clearly identified the values of the predictors which 
 
 
 ### Interpreting Accuracy and ROC
@@ -292,7 +295,7 @@ However, the accuracy rate says that we are only predicting background events we
 
 We should take a quick detour to note that a significant number of predictors related to jets produced by a collision were left out of the model - these variables capture additional information about where the energy and mass ended up after a collision, and their removal may be a source of error, since not all the energy, momentum, and mass is being accounted for by the model.  This may have been the reason why there is such a large discrepancy in the true identification rate for background and signal events - there's probably something special occurring when a jet is produced, and you may need a certain energy/momentum/mass threshold to be crossed in order for the decay of the Higgs into a tautau pair in question to occur.
 
-Overall, it appears the model does _okay_, it's not overwhelmingly good at prediction with a validation accuracy rate of 0.8295.  However, the metrics we have available to evaluate the model indicate that it performs relatively well enough for determining variable importance, and will be generalizeable to a much larger population. 
+Overall, it appears the model does _okay_, it's not overwhelmingly good at prediction with a test accuracy rate of 0.815.  However, the metrics we have available to evaluate the model indicate that it performs relatively well enough for determining variable importance, and will be generalizeable to a much larger population. 
 
 
 ### Variable Importance measures
@@ -313,29 +316,33 @@ Clearly, ```DER_mass_MMC``` is the most important variable (of all the variables
 
 The variables which were at least 25% as important as the estimated mass of the Higgs Boson candidate, in decreasing order of importance, were:
 
-* ```DER_mass_vis``` - The invariant mass of the hadronic tau and the lepton.
-
-* ```DER_met_phi_centrality``` - The centrality of the azimuthal angle of the missing transverse energy vector w.r.t. the hadronic tau and the lepton.
+> Note: fix the correct ordering of these variables after identifying issue with loading data with
+> ```as.numeric```, pre poster presentation.  
 
 * ```DER_mass_transverse_met_lep``` - The transverse mass between the missing transverse energy and the lepton.
 
+* ```DER_mass_vis``` - The invariant mass of the hadronic tau and the lepton.
+
 * ```PRI_tau_pt``` - The transverse momentum $\sqrt{p_x^2 + p_y^2}$ of the hadronic tau. 
+
+* ```DER_deltar_tau_lep``` - The R separation between the hadronic tau and the lepton.  The R separation is a Euclidean distance between the angle in the transverse ($xy$-plane), and the direction of travel along the length of the collider torus $z$, $R = \sqrt{\eta^2 - \phi^2}$.
+
+* ```DER_met_phi_centrality``` - The centrality of the azimuthal angle of the missing transverse energy vector w.r.t. the hadronic tau and the lepton.
 
 * ```DER_pt_ratio_lep_tau``` - The ratio of the transverse momenta of the lepton and the hadronic tau.
 
-* ```DER_deltar_tau_lep``` - The R separation between the hadronic tau and the lepton.
 
 Unsurprisingly, these all have to do with the interchange of mass and energy at subatomic and relativistic scales.  The most important variables are generally related to how much energy, momentum, or mass at a relativistic scale was observed or computed.  As a result, we need to apply some domain knowledge to make sense of what the important variables are.  
 
-For example - ```DER_pt_ratio_lep_tau``` (29.442%) is a ratio of ```PRI_tau_pt``` (33.935%) and  ```PRI_lep_pt``` (13.317%).  Clearly, the signal determined by the ratio of the two momenta has a larger signal importance because of the inclusion of the momentum of the hadronic tau.  The ratio itself may be important, but we need to keep these sort of things in mind.  In general, most of the variables follow this pattern - there are a number of primitive and derived variables of some importance, and the relationship of these requires examination.  Clearly, based on the hierarchy of the above, we could surmise that while the momentum of the lepton is only a little important, the momentum of the hadronic tau which is produced has a far greater impact on discriminating whether events of this class were of a signal or background variety.  It should be noted that the hadronic tau is not the same tautau pair which the Higgs is supposedly decaying into.  
+For example - ```DER_pt_ratio_lep_tau``` (23.44%) is a ratio of ```PRI_tau_pt``` (33.64%) and  ```PRI_lep_pt``` (13.90%).  Clearly, the signal determined by the ratio of the two momenta has a larger signal importance because of the importance it derives from the inclusion of the momentum of the hadronic tau.  The ratio itself may be important, but we need to keep these sort of things in mind.  In general, most of the variables follow this pattern - there are a number of primitive and derived variables of some importance, and the relationship of these requires examination.  Based on the hierarchy of the above, we could surmise that while the momentum of the lepton is only a little important, the momentum of the hadronic tau which is produced has a far greater impact on discriminating whether events of this class were of a background (this does have the higher accuracy rate of prediction) or signal variety.  It should be noted that the hadronic tau is not the same tautau pair which the Higgs is supposedly decaying into.  
 
-However, there are some other interesting pieces that fall out - take for example the inclusion of ```DER_met_phi_centrality``` and ```DER_deltar_tau_lep```.  These derived values are of significantly greater importance than their related primitive values, and are worthy of more scrutiny.  There's far more information captured by these composite values, and provides indication that the expression providing that compositive value is probably of significance for the theoretical model.  For example, the centrality of the azimuthal angle of the missing transverse energy (```DER_met_phi_centrality```) scores significantly high at 42.093, but the corresponding angle is barely of importance at all (```PRI_met_phi```, 9.863).  
+However, there are some other interesting pieces that fall out - take for example the inclusion of ```DER_met_phi_centrality``` and ```DER_deltar_tau_lep```.  These derived values are of significantly greater importance than their related primitive values, and are worthy of more scrutiny.  There's far more information captured by these composite values, and provides indication that the expression providing that compositive value is probably of significance for the theoretical model.  For example, the centrality of the azimuthal angle of the missing transverse energy (```DER_met_phi_centrality```) scores significantly high at 25.91, but the corresponding angle is barely of importance at all (```PRI_met_phi```, 12.93%). 
 
-In particular, it is interesting that the R separation of the hadronic tau and the lepton associated with the event (```DER_deltar_tau_lep```) has such a high importance relative to everything else - this distance between the two is computed using the difference of the pseudorapidity ($\eta$) and azimuthal angle $\phi$ of the two particles (Adam-Bourdarios, Cowan, Germain, Guyon, Kégl, Rousseau, 2014, Appendix A.3).  The high importance of this derived value, compared to the two primitive variables, may speak to the importance of subatomic nuclear forces impacting the decay process, but I still need to confirm this with a subject matter expert as of the time of writing. 
+In particular, it is interesting that the R separation of the hadronic tau and the lepton associated with the event (```DER_deltar_tau_lep```) has such a high importance relative to everything else - this distance between the two is computed using the difference of the pseudorapidity ($\eta$) and azimuthal angle $\phi$ of the two particles (Adam-Bourdarios, Cowan, Germain, Guyon, Kégl, Rousseau, 2014, Appendix A.3).  The high importance of this derived value, compared to the two primitive variables, may speak to the angle of the collision, and determining something special about what collisions occurred to produce such an event. 
 
-Next, we can also see that the number of jets produced had zero impact or importance on the outcome - values associated with those jets may have an influence (such as the sum of momentum of all jets produced, ```PRI_jet_all_pt```).  However, these values were not included in the classification because of the difficulty associated with including "undefined" values within the classification itself, as noted in the Data section.  
+Next, we can also see that the number of jets produced had zero impact or importance on the outcome - values associated with those jets may have an influence (such as the sum of momentum of all jets produced, ```PRI_jet_all_pt```).  However, values for angles of detection, momentum, and energy of jets were not included in the classification because of the difficulty associated with including "undefined" values within the classification itself, as noted in the Data section.  Each jet is a pseudo-particle interpretation of collimated energy, interpreted as a wavefront, as it struck a detector on the outside of the torus.  Discussion with subject matter experts indicated that what jets were produced is of critical importance for the Higgs, 
 
-There's something which has been left out here which may turn out to be important - the ability to inspect each tree, and each node.  If we took the time and space, it would be possible to view each node, and each associated split tree.  This would give us the ability to see the chain of variables which split the ensemble - that is, identify multiple classes or the importance of each variable in relation to each other.  This would provide state-dependent information about each of the variables, for example, if we classify according to the transverse mass between the missing transverse energy and the lepton, we might want to next make a decision based on the momentum of the lepton, and inspecting the forest/ensemble structure would give us this information. 
+There's something which has been left out here which may turn out to be important - the ability to inspect each tree, and each node.  If we took the time and space, it would be possible to view each node, and each associated split tree.  This would give us the ability to see the chain of variables which split the ensemble - that is, identify multiple classes or the importance of each variable in relation to each other.  This would provide state-dependent information about each of the variables, for example, if we classify according to the transverse mass between the missing transverse energy and the lepton, we might want to next make a decision based on the momentum of the lepton, and inspecting the forest/ensemble structure would give us this information.  Furthermore, vieweing the depth of the trees as generated may provide insight about distinct classes of outcomes which could be gleaned from this data set, instead of just categorizing events into something that should or shouldn't be looked at. 
 
 Finally, the combination of multiple collinear variables which capture some of the same information appear to have roughly the same importance scores.  There may also be non-linear effects which are captured by groupings of the variables, but aren't easily visible using these metrics or this model - however, the usage of the model provided additional evidence that these groupings of variables exist, and a composite feature may be of more use.  For future steps, it may be useful to use a hierarchical clustering classifier to observe the same effects, or employ principal components in order to view this.  
 
@@ -350,7 +357,7 @@ However, due to the nature of the method being used, predictors which may have b
 
 ### Variable Importance
 
-The variable importance measures gained from Random Forest provided insight into the data, and matched information known from theoretical models.  The method correctly identified that variables related to mass, momentum, and energy levels were the most important in determining what products form from a hadronic collision, decayed or otherwise - mass, momentum and energy must be conserved in one way or another.  
+The variable importance measures gained from Random Forest provided insight into the data, and matched information known from theoretical models.  The method correctly identified that variables related to mass, momentum, and energy levels were the most important in determining what products form from a hadronic collision, decayed or otherwise - mass, momentum and energy must be conserved in one way or another.  This also helps solidfy my own understanding and underscores the utility of Random Decision Forests, when applied to a data set with unknowns, it does find things which are externally testable and confirmable. 
 
 Moreover, the variable importance measures available with Random Decision Forests identified several key features and provided a hierarchy for understanding what was important or not - even when the features have non-linear relationships, or have direct collinearity between them (which would otherwise make it difficult to determine which predictor was "more important").  This is not directly possible with many of the methods we covered in class, and is a unique addition to "the toolbox" beyond best-subset selection or interpreting coefficients from the usual regression. 
 
@@ -360,13 +367,21 @@ Finally, as mentioned repeatedly, potentially important information had to be le
 
 ### Real-World Implementation/Usage
 
-Random Decision Forests require intense computational power, especially for high-dimensional problems.  There was extensive searching for, and reading of, documentation required to find, use, and compare suitable implementations for performing the Random Decision Forests problem.  Thankfully, I landed on the ```ranger``` package, a relatively recent addition to the host of packages which implement Random Decision Forests in R, and which was by far the fastest implementation to use (Wright & Ziegler, 2017, pp. 8) and deploy.  
+Random Decision Forests in high-dimensional spaces with thousands of observations requires intense computational power, especially for high-dimensional problems.  There was extensive searching for, and reading of, documentation required to find, use, and compare suitable implementations for performing the Random Decision Forests problem.  Thankfully, I landed on the ```ranger``` package, a relatively recent addition to the host of packages which implement Random Decision Forests in R, and which was by far the fastest implementation to use (Wright & Ziegler, 2017, pp. 8) and deploy.  
 
 The runtime for the code as used above was in the ballpark of 2-5 hours on a conventional business laptop with a mid-grade 2017 Intel i7 processor clocked at 2.5 GHz and 12GiB of 1666 MHz RAM, and I barely had enough RAM left to watch movies in the background while it ran.  The author, at one point, drove a truck through a snowstorm to a friend's server with a 16 core Ryzen 2 processor clocked at 3.4 GHz, with 32 GiB of ECC RAM clocking in at 2666 MHz.  The same code was run, except the subset of variables used for each tree was tested from 2 to 13.  That took over 6 hours to run, and the temperature inside the room housing the server remained at roughly 30 degrees Celsius for up to two hours after the computation finished, depite cold air from a blizzard being vented directly into the room.  In both cases, somewhere between 9 to 12 GiB of RAM needed to be held in memory while the ensemble forest was being grown.  
 
-Where methods such as regression and other techniques are accomplishable with a real solid beer or two, Random Decision Forests ended up being much more intense - the author's suggestion is to acquire boxed wine, friends, and cheese and crackers of choice.  The author found most the best success with the leverage of toasted brie and goat cheese, with a multiple berry preserve or jam, applied to a Ritz cracker. 
+Where methods such as regression and other techniques are accomplishable with a real solid beer or two, Random Decision Forests ended up being much more intense - the author's suggestion is to acquire boxed wine, friends, and cheese and crackers of choice.  The author found most the best success with the leverage of lightly toasted brie and goat cheese, with a multiple berry preserve or jam, applied to a Ritz cracker. 
 
 In general, this method is employable when there has already been significant non-trivial work done on verifying and cleaning the data prior to use.  Significant prior thought needs to be put into how the problem is being addressed and constructed prior to the application of Random Decision Forests - in short time spans, the user may not have reasonable ability to run the model more than once, due to the intensive computational expense, before moving on to interpreting the model output. 
+
+## Acknowledgements
+
+Special thanks to:
+
+* Audrey Hendricks for shepherding the iterative process for developing the foundations for beginning this project
+
+* Amy Roberts and Anthony Villano for providing context and understanding of the core components of the data I was working with
 
 ## References
 
@@ -378,6 +393,8 @@ Accessed at http://opendata.cern.ch/record/329 on 17 Nov 2019
 
 Wright, Marvin N., and Andreas Ziegler. “Ranger: A Fast Implementation of Random Forests for High Dimensional Data in C++ and R.” Journal of Statistical Software, vol. 77, no. 1, Mar. 2017, doi:10.18637/jss.v077.i01.
 Accessed on the Arkiv on 20 Nov 2019
+
+
 
 <br>
 
